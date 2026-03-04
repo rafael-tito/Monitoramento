@@ -1,277 +1,415 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor PRO - High Capacity</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor</title>
 
-    <style>
-        @keyframes pulse-red {
-            0%, 100% { border-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            50% { border-color: #f87171; box-shadow: 0 0 15px 5px rgba(239, 68, 68, 0.3); }
-        }
-        .alerta-crise { animation: pulse-red 2s infinite; border-width: 2px !important; background-color: #fef2f2 !important; }
-        #progressBar { transition: width 1s linear; }
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    </style>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+tailwind.config = { darkMode: 'class' }
+</script>
+
+<style>
+body{
+font-family: Inter, sans-serif;
+transition: background 0.3s, color 0.3s;
+}
+.status-crise{
+border:2px solid #ef4444;
+}
+</style>
 </head>
-<body class="bg-slate-100 font-sans">
 
-<div class="fixed top-0 left-0 w-full h-1 bg-slate-200 z-[60]">
-    <div id="progressBar" class="h-full bg-blue-600 w-0"></div>
+<body class="bg-gray-100 dark:bg-gray-900 dark:text-white p-4 md:p-6">
+
+<div class="max-w-7xl mx-auto">
+
+<!-- TOPO -->
+<div class="flex justify-between items-center mb-6 flex-wrap gap-4">
+<h1 class="text-2xl md:text-3xl font-black">
+Monitor de PA
+</h1>
+
+<button onclick="alternarTema()"
+class="bg-gray-800 dark:bg-yellow-400 dark:text-black text-white px-4 py-2 rounded-xl font-bold">
+Alternar Tema
+</button>
 </div>
 
-<div class="flex min-h-screen">
-    <aside id="sidebar" class="w-72 bg-slate-900 text-white p-6 hidden lg:flex flex-col border-r border-slate-700">
-        <div class="mb-8">
-            <h2 class="text-2xl font-black text-blue-400 italic">SOCIAL-TRACK</h2>
-            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">Deep Search Engine</p>
-        </div>
-        
-        <div class="space-y-6 flex-1">
-            <div class="bg-slate-800 p-4 rounded-2xl space-y-4 border border-slate-700">
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-2">Alcance da Busca</label>
-                    <select id="tipoBusca" class="w-full bg-slate-700 border-none rounded-lg p-2 text-sm text-white outline-none">
-                        <option value="global">?? Busca Global (M&aacute;xima)</option>
-                        <option value="news">?? Apenas Not&iacute;cias</option>
-                        <option value="social">?? Redes Sociais Pro</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-2">Ciclo de Atualiza&ccedil;&atilde;o</label>
-                    <select id="intervaloRefresh" onchange="resetTimer()" class="w-full bg-slate-700 border-none rounded-lg p-2 text-sm text-white outline-none">
-                        <option value="0">Manual</option>
-                        <option value="180">3 Minutos</option>
-                        <option value="300" selected>5 Minutos</option>
-                        <option value="600">10 Minutos</option>
-                    </select>
-                </div>
-            </div>
+<!-- BUSCA -->
+<div class="grid md:grid-cols-6 gap-4 mb-6">
 
-            <button onclick="carregarNoticias()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold transition shadow-lg active:scale-95 uppercase text-[11px] tracking-wider">
-                Executar Varredura
-            </button>
-        </div>
+<input id="inputBusca"
+class="border-2 rounded-xl p-3 font-bold dark:bg-gray-800 col-span-2"
+placeholder="Digite o nome ou empresa...">
 
-        <div class="grid grid-cols-2 gap-2 mt-auto pt-4 border-t border-slate-800">
-            <button onclick="exportarExcel()" class="bg-slate-800 hover:bg-emerald-700 p-3 rounded-xl text-[9px] font-bold uppercase transition">Excel</button>
-            <button onclick="exportarPDF()" class="bg-slate-800 hover:bg-rose-700 p-3 rounded-xl text-[9px] font-bold uppercase transition">PDF</button>
-        </div>
-    </aside>
+<select id="tipoBusca"
+class="border-2 rounded-xl p-3 font-bold dark:bg-gray-800"
+onchange="toggleEstado()">
+<option value="internacional">Internacional</option>
+<option value="nacional">Brasil</option>
+<option value="estado">Por Estado</option>
+</select>
 
-    <main class="flex-1 p-4 lg:p-10">
-        <header class="flex flex-col xl:flex-row justify-between items-center gap-6 mb-8">
-            <div class="relative w-full xl:w-2/3">
-                <input id="palavraChave" type="text" value="Marinha do Brasil" 
-                       class="w-full bg-white border-2 border-slate-200 rounded-2xl py-4 px-6 shadow-sm outline-none focus:border-blue-500 font-bold text-slate-700 transition-all">
-                <div class="absolute right-4 top-4 flex gap-2">
-                    <span id="badgeStatus" class="bg-emerald-100 text-emerald-600 text-[9px] font-black px-2 py-1 rounded-md uppercase">Sistema Ativo</span>
-                </div>
-            </div>
-            
-            <div id="statusAlerta" class="hidden w-full xl:w-auto flex items-center justify-center gap-3 bg-red-600 text-white px-8 py-4 rounded-2xl animate-bounce shadow-xl">
-                <span class="font-black uppercase text-xs">Crise em Tempo Real!</span>
-            </div>
-        </header>
+<select id="estadoBrasil"
+class="border-2 rounded-xl p-3 font-bold hidden dark:bg-gray-800">
+<option>S?o Paulo</option>
+<option>Rio de Janeiro</option>
+<option>Minas Gerais</option>
+<option>Bahia</option>
+<option>Paraná</option>
+<option>Rio Grande do Sul</option>
+<option>Santa Catarina</option>
+<option>Distrito Federal</option>
+</select>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-emerald-500 transition-transform hover:scale-105">
-                <p class="text-slate-400 text-[9px] font-black uppercase">Otimismo</p>
-                <h3 id="totalPositivo" class="text-3xl font-black text-emerald-600">0</h3>
-            </div>
-            <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-rose-500 transition-transform hover:scale-105">
-                <p class="text-slate-400 text-[9px] font-black uppercase">Cr&iacute;tico</p>
-                <h3 id="totalNegativo" class="text-3xl font-black text-rose-600">0</h3>
-            </div>
-            <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-slate-400 transition-transform hover:scale-105">
-                <p class="text-slate-400 text-[9px] font-black uppercase">Neutro</p>
-                <h3 id="totalNeutro" class="text-3xl font-black text-slate-600">0</h3>
-            </div>
-            <div class="bg-slate-900 p-6 rounded-3xl shadow-sm transition-transform hover:scale-105">
-                <p class="text-blue-400 text-[9px] font-black uppercase tracking-widest">Gatilhos</p>
-                <h3 id="totalCrise" class="text-3xl font-black text-white">0</h3>
-            </div>
-        </div>
+<button onclick="executarBusca()"
+class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold">
+Buscar
+</button>
 
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            <div class="xl:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                <div id="loading" class="hidden text-center py-20">
-                    <div class="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Processando Big Data...</p>
-                </div>
-                <div id="listaNoticias" class="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scroll"></div>
-            </div>
+<button onclick="exportarPDF()"
+class="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold">
+Exportar PDF A4
+</button>
 
-            <div class="space-y-8">
-                <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-                    <h3 class="text-[10px] font-black mb-8 text-slate-400 uppercase tracking-widest text-center">Volume de Sentimento</h3>
-                    <canvas id="graficoSentimento"></canvas>
-                </div>
-                <div class="bg-blue-600 p-6 rounded-3xl text-white shadow-lg">
-                    <h4 class="font-bold text-sm mb-2">&Uacute;ltima Varredura</h4>
-                    <p id="lastUpdate" class="text-2xl font-black opacity-90">--:--:--</p>
-                    <p class="text-[10px] mt-2 opacity-70 uppercase font-bold tracking-widest">Status: Conectado ao Proxy</p>
-                </div>
-            </div>
-        </div>
-    </main>
+</div>
+
+<!-- ESTATÍSTICAS -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center font-bold">
+
+<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+Positivo<br><span id="numPos">0</span>
+</div>
+
+<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+Negativo<br><span id="numNeg">0</span>
+</div>
+
+<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+Neutro<br><span id="numNeu">0</span>
+</div>
+
+<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+Incidentes<br><span id="numCri">0</span>
+</div>
+
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+<div class="lg:col-span-2">
+
+<div id="loader" class="hidden font-bold mb-4">
+Carregando notícias...
+</div>
+
+<div id="feed"></div>
+
+<div class="mt-8 bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+<h3 class="font-black mb-4">Pesquisa em Redes Sociais</h3>
+<div id="socialLinks" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+</div>
+
+</div>
+
+<div class="space-y-8">
+
+<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+<canvas id="chartPizza"></canvas>
+</div>
+
+<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+<canvas id="chartLinha"></canvas>
+</div>
+
+</div>
+
+</div>
 </div>
 
 <script>
-let graficoInstance = null;
-let noticiasAtuais = [];
-let timerSeconds = 0;
-const audioAlerta = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+const { jsPDF } = window.jspdf;
 
-// Inteligência de Filtro e Gatilho
-const palavrasCrise = ["corrup&ccedil;&atilde;o", "crime", "den&uacute;ncia", "esc&acirc;ndalo", "morte", "preso", "investiga&ccedil;&atilde;o", "fake news", "fraude", "perigo", "justi&ccedil;a"];
-const stopWords = ["vaga", "concurso", "vende-se", "estoque"]; // Filtra buscas inúteis
+const STATE={
+dados:[],
+estatisticas:{Positivo:0,Negativo:0,Neutro:0,Crise:0},
+linksSociais:[],
+chartPizza:null,
+chartLinha:null
+};
 
-async function carregarNoticias() {
-    const termoInput = document.getElementById("palavraChave").value;
-    const tipo = document.getElementById("tipoBusca").value;
-    const lista = document.getElementById("listaNoticias");
-    const loader = document.getElementById("loading");
-    
-    lista.innerHTML = "";
-    loader.classList.remove("hidden");
-    noticiasAtuais = [];
-    timerSeconds = 0;
-
-    // ESTRATÉGIA DE BUSCA MÁXIMA
-    // Combina o termo com operadores de urgência para forçar o Google a trazer o que há de mais relevante
-    let queryFinal = `"${termoInput}" (urgente OR denúncia OR oficial OR nota)`;
-    
-    if (tipo === "social") {
-        queryFinal = `"${termoInput}" (site:x.com OR site:reddit.com OR site:youtube.com OR site:linkedin.com OR site:instagram.com)`;
-    } else if (tipo === "global") {
-        queryFinal = `"${termoInput}" -vaga -concurso`; // Busca limpa e ampla
-    }
-
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(queryFinal)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
-    const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}&cb=${Date.now()}`;
-
-    try {
-        const response = await fetch(proxy);
-        const text = await response.text();
-        const xml = new DOMParser().parseFromString(text, "text/xml");
-        const items = Array.from(xml.querySelectorAll("item")).slice(0, 100); // Máximo de 100 itens
-
-        let stats = { Positivo: 0, Negativo: 0, Neutro: 0, Crise: 0 };
-
-        items.forEach(item => {
-            const rawTitle = item.querySelector("title").textContent;
-            const link = item.querySelector("link").textContent;
-            const data = new Date(item.querySelector("pubDate").textContent).toLocaleDateString('pt-BR');
-            const partes = rawTitle.split(" - ");
-            const fonte = partes.pop();
-            const titulo = partes.join(" - ");
-
-            // Filtro de Stop Words
-            if (stopWords.some(sw => titulo.toLowerCase().includes(sw))) return;
-
-            const tLower = titulo.toLowerCase();
-            const isCrise = palavrasCrise.some(p => {
-                const span = document.createElement("span"); span.innerHTML = p;
-                return tLower.includes(span.innerText);
-            });
-            
-            let sentiment = { nome: 'Neutro', cor: 'text-slate-500', bg: 'bg-white' };
-            if (["sucesso", "avan&ccedil;o", "vit&oacute;ria", "entrega", "novo"].some(p => tLower.includes("o"))) {
-                sentiment = { nome: 'Positivo', cor: 'text-emerald-600', bg: 'bg-emerald-50/30' };
-            } else if (["erro", "falha", "perda", "cr&iacute;tica"].some(n => tLower.includes("a")) || isCrise) {
-                sentiment = { nome: 'Negativo', cor: 'text-rose-600', bg: 'bg-rose-50/30' };
-            }
-
-            stats[sentiment.nome]++;
-            if (isCrise) stats.Crise++;
-
-            noticiasAtuais.push({ Data: data, Fonte: fonte, Conteudo: titulo, Sentimento: sentiment.nome });
-
-            lista.innerHTML += `
-                <div class="p-4 rounded-2xl border ${isCrise ? 'alerta-crise' : 'border-slate-100'} ${sentiment.bg} hover:border-blue-200 transition-all group">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-[8px] font-black uppercase tracking-tighter ${sentiment.cor}">${isCrise ? 'ALERTA DE SEGURAN&Ccedil;A' : sentiment.nome}</span>
-                        <span class="text-[8px] text-slate-400 font-bold">${data}</span>
-                    </div>
-                    <a href="${link}" target="_blank" class="text-sm font-bold text-slate-800 group-hover:text-blue-600 block leading-tight mb-2">${titulo}</a>
-                    <span class="text-[9px] text-slate-400 font-black uppercase tracking-widest opacity-60">${fonte}</span>
-                </div>`;
-        });
-
-        document.getElementById("totalCrise").innerText = stats.Crise;
-        document.getElementById("totalPositivo").innerText = stats.Positivo;
-        document.getElementById("totalNegativo").innerText = stats.Negativo;
-        document.getElementById("totalNeutro").innerText = stats.Neutro;
-        document.getElementById("lastUpdate").innerText = new Date().toLocaleTimeString('pt-BR');
-        
-        if(stats.Crise > 0) audioAlerta.play();
-        atualizarGrafico(stats);
-    } catch (e) {
-        lista.innerHTML = "<p class='text-center py-20 text-slate-400 text-[10px] font-bold uppercase tracking-widest'>Falha na Rede Proxy. Tentando reconectar...</p>";
-    } finally {
-        loader.classList.add("hidden");
-    }
+/* TEMA */
+function alternarTema(){
+document.documentElement.classList.toggle("dark");
 }
 
-function atualizarGrafico(dados) {
-    const ctx = document.getElementById("graficoSentimento").getContext('2d');
-    if (graficoInstance) graficoInstance.destroy();
-    graficoInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Positivo', 'Negativo', 'Neutro'],
-            datasets: [{ 
-                data: [dados.Positivo, dados.Negativo, dados.Neutro], 
-                backgroundColor: ['#10b981', '#f43f5e', '#94a3b8'], 
-                borderWidth: 0,
-                hoverOffset: 10
-            }]
-        },
-        options: { cutout: '85%', plugins: { legend: { display: false } } }
-    });
+/* ESTADO */
+function toggleEstado(){
+estadoBrasil.classList.toggle("hidden",tipoBusca.value!=="estado");
 }
 
-setInterval(() => {
-    const intervalo = parseInt(document.getElementById("intervaloRefresh").value);
-    if (intervalo > 0) {
-        timerSeconds++;
-        document.getElementById("progressBar").style.width = (timerSeconds / intervalo) * 100 + "%";
-        if (timerSeconds >= intervalo) { carregarNoticias(); timerSeconds = 0; }
-    }
-}, 1000);
+/* CLASSIFICADOR EXPANDIDO */
+function classificar(texto){
 
-function resetTimer() { timerSeconds = 0; }
-function exportarExcel() {
-    const ws = XLSX.utils.json_to_sheet(noticiasAtuais);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Monitor_Intelligence");
-    XLSX.writeFile(wb, "Relatorio_BI_Social.xlsx");
+const t=texto.toLowerCase();
+
+const crise=[
+"crime","fraude","corrupç?o","escândalo","pris?o","morte",
+"assassinato","denúncia","impeachment","tragédia",
+"violência","processo","condenado"
+];
+
+const negativo=[
+"erro","falha","queda","prejuízo","crise",
+"demiss?o","reclamaç?o","acusaç?o","rombo",
+"instabilidade","inflaç?o","desastre",
+"polêmica","perda","cancelamento"
+];
+
+const positivo=[
+"sucesso","vitória","crescimento","recorde",
+"lucro","expans?o","aprovaç?o","inovaç?o",
+"lançamento","avanço","melhora",
+"liderança","valorizaç?o","investimento","parceria"
+];
+
+for(let termo of crise){
+if(t.includes(termo)) return {cat:"Negativo",crise:true};
 }
-function exportarPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold");
-    doc.text("SOCIAL-TRACK BUSINESS INTELLIGENCE", 14, 15);
-    doc.autoTable({
-        startY: 25,
-        head: [['Data', 'Fonte', 'Conteudo', 'Status']],
-        body: noticiasAtuais.map(n => [n.Data, n.Fonte, n.Conteudo, n.Sentimento]),
-        theme: 'striped',
-        styles: { fontSize: 7 }
-    });
-    doc.save("Relatorio_Monitoramento.pdf");
+for(let termo of negativo){
+if(t.includes(termo)) return {cat:"Negativo",crise:false};
+}
+for(let termo of positivo){
+if(t.includes(termo)) return {cat:"Positivo",crise:false};
+}
+return {cat:"Neutro",crise:false};
 }
 
-window.onload = carregarNoticias;
+/* BUSCA */
+async function executarBusca(){
+
+const nome=inputBusca.value.trim();
+if(!nome) return;
+
+let consulta=`"${nome}"`;
+
+if(tipoBusca.value==="nacional") consulta+=" Brasil";
+if(tipoBusca.value==="estado") consulta+=` "${estadoBrasil.value}"`;
+
+const url=`https://news.google.com/rss/search?q=${encodeURIComponent(consulta)}&hl=pt-BR&ceid=BR:pt-419`;
+const proxy=`https://corsproxy.io/?${encodeURIComponent(url)}`;
+
+loader.classList.remove("hidden");
+
+const resp=await fetch(proxy);
+const txt=await resp.text();
+const xml=new DOMParser().parseFromString(txt,"text/xml");
+
+const itens=Array.from(xml.querySelectorAll("item")).slice(0,20);
+
+processarResultados(itens);
+gerarLinksSociais(nome);
+
+loader.classList.add("hidden");
+}
+
+/* PROCESSAR */
+function processarResultados(itens){
+
+STATE.dados=[];
+STATE.estatisticas={Positivo:0,Negativo:0,Neutro:0,Crise:0};
+
+feed.innerHTML="";
+
+itens.forEach(item=>{
+
+const titulo=item.querySelector("title").textContent;
+const link=item.querySelector("link").textContent;
+const data=new Date(item.querySelector("pubDate").textContent)
+.toLocaleDateString("pt-BR");
+
+const analise=classificar(titulo);
+
+STATE.estatisticas[analise.cat]++;
+if(analise.crise) STATE.estatisticas.Crise++;
+
+STATE.dados.push({titulo,link,data,analise});
+
+const div=document.createElement("div");
+div.className=`bg-white dark:bg-gray-800 p-4 rounded-xl shadow mb-4 ${analise.crise?'status-crise':''}`;
+
+div.innerHTML=`
+<div class="text-xs font-bold mb-1">
+${analise.cat} - ${data}
+</div>
+<a href="${link}" target="_blank"
+class="font-bold text-blue-500 hover:underline">
+${titulo}
+</a>`;
+
+feed.appendChild(div);
+});
+
+atualizarGraficos();
+}
+
+/* REDES SOCIAIS */
+function gerarLinksSociais(nome){
+
+const e=encodeURIComponent(nome);
+
+STATE.linksSociais=[
+["Facebook",`https://www.facebook.com/search/top?q=${e}`],
+["Instagram",`https://www.instagram.com/explore/tags/${nome.replace(/\s+/g,"")}/`],
+["X",`https://twitter.com/search?q=${e}`],
+["TikTok",`https://www.tiktok.com/search?q=${e}`],
+["YouTube",`https://www.youtube.com/results?search_query=${e}`],
+["LinkedIn",`https://www.linkedin.com/search/results/all/?keywords=${e}`]
+];
+
+socialLinks.innerHTML="";
+
+STATE.linksSociais.forEach(r=>{
+const a=document.createElement("a");
+a.href=r[1];
+a.target="_blank";
+a.className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl text-center font-bold";
+a.innerText=r[0];
+socialLinks.appendChild(a);
+});
+}
+
+/* GRÁFICOS */
+function atualizarGraficos(){
+
+numPos.innerText=STATE.estatisticas.Positivo;
+numNeg.innerText=STATE.estatisticas.Negativo;
+numNeu.innerText=STATE.estatisticas.Neutro;
+numCri.innerText=STATE.estatisticas.Crise;
+
+if(STATE.chartPizza) STATE.chartPizza.destroy();
+if(STATE.chartLinha) STATE.chartLinha.destroy();
+
+STATE.chartPizza=new Chart(chartPizza,{
+type:"doughnut",
+data:{
+labels:["Positivo","Negativo","Neutro"],
+datasets:[{
+data:[
+STATE.estatisticas.Positivo,
+STATE.estatisticas.Negativo,
+STATE.estatisticas.Neutro
+],
+backgroundColor:["#10b981","#ef4444","#94a3b8"]
+}]
+}
+});
+
+const datas={};
+STATE.dados.forEach(n=>{
+datas[n.data]=(datas[n.data]||0)+1;
+});
+
+STATE.chartLinha=new Chart(chartLinha,{
+type:"line",
+data:{
+labels:Object.keys(datas),
+datasets:[{
+label:"Notícias por Data",
+data:Object.values(datas),
+borderColor:"#3b82f6",
+fill:false
+}]
+}
+});
+}
+
+/* PDF A4 PROFISSIONAL */
+function exportarPDF(){
+
+if(!STATE.dados.length){
+alert("Nenhum relatório disponível.");
+return;
+}
+
+const doc=new jsPDF({
+orientation:"portrait",
+unit:"mm",
+format:"a4"
+});
+
+const pageWidth=210;
+const pageHeight=297;
+const margin=20;
+const maxWidth=pageWidth-(margin*2);
+
+let y=margin;
+
+doc.setFont("helvetica","bold");
+doc.setFontSize(16);
+doc.text("RELATORIO MONITOR PRO v9.0",pageWidth/2,y,{align:"center"});
+y+=10;
+
+doc.setFontSize(11);
+doc.setFont("helvetica","normal");
+doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`,margin,y);
+y+=10;
+
+doc.setFont("helvetica","bold");
+doc.text("Resumo:",margin,y);
+y+=7;
+
+doc.setFont("helvetica","normal");
+doc.text(`Positivo: ${STATE.estatisticas.Positivo}`,margin,y); y+=6;
+doc.text(`Negativo: ${STATE.estatisticas.Negativo}`,margin,y); y+=6;
+doc.text(`Neutro: ${STATE.estatisticas.Neutro}`,margin,y); y+=6;
+doc.text(`Incidentes: ${STATE.estatisticas.Crise}`,margin,y); y+=10;
+
+doc.setFont("helvetica","bold");
+doc.text("Redes Sociais:",margin,y);
+y+=8;
+
+doc.setFont("helvetica","normal");
+
+STATE.linksSociais.forEach(r=>{
+if(y>pageHeight-margin){doc.addPage(); y=margin;}
+const linhas=doc.splitTextToSize(`${r[0]}: ${r[1]}`,maxWidth);
+doc.text(linhas,margin,y);
+y+=(linhas.length*5)+4;
+});
+
+y+=5;
+
+doc.setFont("helvetica","bold");
+doc.text("Noticias:",margin,y);
+y+=8;
+
+doc.setFont("helvetica","normal");
+
+STATE.dados.forEach(n=>{
+if(y>pageHeight-margin){doc.addPage(); y=margin;}
+const bloco=`${n.data} - ${n.analise.cat}\n${n.titulo}\n${n.link}`;
+const linhas=doc.splitTextToSize(bloco,maxWidth);
+doc.text(linhas,margin,y);
+y+=(linhas.length*5)+6;
+});
+
+const total=doc.getNumberOfPages();
+
+for(let i=1;i<=total;i++){
+doc.setPage(i);
+doc.setFontSize(9);
+doc.text(`Pagina ${i} de ${total}`,pageWidth/2,pageHeight-10,{align:"center"});
+}
+
+doc.save("relatorio-monitor-pro-v9-A4.pdf");
+}
 </script>
+
 </body>
 </html>
