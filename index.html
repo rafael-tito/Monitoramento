@@ -1,413 +1,290 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monitor</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de PA - Pro v9.0</title>
 
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-<script>
-tailwind.config = { darkMode: 'class' }
-</script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
 
-<style>
-body{
-font-family: Inter, sans-serif;
-transition: background 0.3s, color 0.3s;
-}
-.status-crise{
-border:2px solid #ef4444;
-}
-</style>
+    <style>
+        body { font-family: 'Inter', sans-serif; transition: background 0.3s, color 0.3s; }
+        .status-crise { border: 2px solid #ef4444; position: relative; }
+        .status-crise::after { content: 'ALERTA DE CRISE'; position: absolute; top: 5px; right: 10px; font-size: 10px; color: #ef4444; font-weight: bold; }
+    </style>
 </head>
 
 <body class="bg-gray-100 dark:bg-gray-900 dark:text-white p-4 md:p-6">
 
 <div class="max-w-7xl mx-auto">
+    <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
+        <h1 class="text-2xl md:text-3xl font-black text-blue-600 dark:text-blue-400">Monitor de PA</h1>
+        <button onclick="alternarTema()" class="bg-gray-800 dark:bg-yellow-400 dark:text-black text-white px-4 py-2 rounded-xl font-bold">
+            Alternar Tema
+        </button>
+    </div>
 
-<!-- TOPO -->
-<div class="flex justify-between items-center mb-6 flex-wrap gap-4">
-<h1 class="text-2xl md:text-3xl font-black">
-Monitor de PA
-</h1>
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+        <input id="inputBusca" class="border-2 rounded-xl p-3 font-bold dark:bg-gray-800 col-span-2" placeholder="Nome ou Empresa...">
+        
+        <select id="tipoBusca" class="border-2 rounded-xl p-3 font-bold dark:bg-gray-800" onchange="toggleEstado()">
+            <option value="internacional">Global</option>
+            <option value="nacional">Brasil</option>
+            <option value="estado">Por Estado</option>
+        </select>
 
-<button onclick="alternarTema()"
-class="bg-gray-800 dark:bg-yellow-400 dark:text-black text-white px-4 py-2 rounded-xl font-bold">
-Alternar Tema
-</button>
-</div>
+        <select id="estadoBrasil" class="border-2 rounded-xl p-3 font-bold hidden dark:bg-gray-800">
+            <option value="São Paulo">São Paulo</option>
+            <option value="Rio de Janeiro">Rio de Janeiro</option>
+            <option value="Minas Gerais">Minas Gerais</option>
+            <option value="Bahia">Bahia</option>
+            <option value="Paraná">Paraná</option>
+            <option value="Rio Grande do Sul">RS</option>
+            <option value="Santa Catarina">Santa Catarina</option>
+            <option value="Distrito Federal">Distrito Federal</option>
+        </select>
 
-<!-- BUSCA -->
-<div class="grid md:grid-cols-6 gap-4 mb-6">
+        <button onclick="executarBusca()" class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold">Buscar</button>
+        <button onclick="exportarPDF()" class="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold">Exportar PDF</button>
+    </div>
 
-<input id="inputBusca"
-class="border-2 rounded-xl p-3 font-bold dark:bg-gray-800 col-span-2"
-placeholder="Digite o nome ou empresa...">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center font-bold">
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">Positivo<br><span id="numPos" class="text-green-500 text-xl">0</span></div>
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">Negativo<br><span id="numNeg" class="text-red-500 text-xl">0</span></div>
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">Neutro<br><span id="numNeu" class="text-gray-500 text-xl">0</span></div>
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow border-b-4 border-red-600">Crises<br><span id="numCri" class="text-red-700 text-xl">0</span></div>
+    </div>
 
-<select id="tipoBusca"
-class="border-2 rounded-xl p-3 font-bold dark:bg-gray-800"
-onchange="toggleEstado()">
-<option value="internacional">Internacional</option>
-<option value="nacional">Brasil</option>
-<option value="estado">Por Estado</option>
-</select>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2">
+            <div id="loader" class="hidden font-bold mb-4 animate-pulse text-blue-500 text-center">Consultando bases de dados...</div>
+            <div id="feed"></div>
 
-<select id="estadoBrasil"
-class="border-2 rounded-xl p-3 font-bold hidden dark:bg-gray-800">
-<option>S?o Paulo</option>
-<option>Rio de Janeiro</option>
-<option>Minas Gerais</option>
-<option>Bahia</option>
-<option>Paraná</option>
-<option>Rio Grande do Sul</option>
-<option>Santa Catarina</option>
-<option>Distrito Federal</option>
-</select>
+            <div class="mt-8 bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+                <h3 class="font-black mb-4">Atalhos de Redes Sociais</h3>
+                <div id="socialLinks" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+            </div>
+        </div>
 
-<button onclick="executarBusca()"
-class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold">
-Buscar
-</button>
-
-<button onclick="exportarPDF()"
-class="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold">
-Exportar PDF A4
-</button>
-
-</div>
-
-<!-- ESTATÍSTICAS -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center font-bold">
-
-<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-Positivo<br><span id="numPos">0</span>
-</div>
-
-<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-Negativo<br><span id="numNeg">0</span>
-</div>
-
-<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-Neutro<br><span id="numNeu">0</span>
-</div>
-
-<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-Incidentes<br><span id="numCri">0</span>
-</div>
-
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-<div class="lg:col-span-2">
-
-<div id="loader" class="hidden font-bold mb-4">
-Carregando notícias...
-</div>
-
-<div id="feed"></div>
-
-<div class="mt-8 bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-<h3 class="font-black mb-4">Pesquisa em Redes Sociais</h3>
-<div id="socialLinks" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
-</div>
-
-</div>
-
-<div class="space-y-8">
-
-<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-<canvas id="chartPizza"></canvas>
-</div>
-
-<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-<canvas id="chartLinha"></canvas>
-</div>
-
-</div>
-
-</div>
+        <div class="space-y-8">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+                <canvas id="chartPizza"></canvas>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+                <canvas id="chartLinha"></canvas>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
 const { jsPDF } = window.jspdf;
 
-const STATE={
-dados:[],
-estatisticas:{Positivo:0,Negativo:0,Neutro:0,Crise:0},
-linksSociais:[],
-chartPizza:null,
-chartLinha:null
+// Mapeamento de Elementos
+const el = {
+    inputBusca: document.getElementById('inputBusca'),
+    tipoBusca: document.getElementById('tipoBusca'),
+    estadoBrasil: document.getElementById('estadoBrasil'),
+    loader: document.getElementById('loader'),
+    feed: document.getElementById('feed'),
+    socialLinks: document.getElementById('socialLinks'),
+    numPos: document.getElementById('numPos'),
+    numNeg: document.getElementById('numNeg'),
+    numNeu: document.getElementById('numNeu'),
+    numCri: document.getElementById('numCri'),
+    ctxPizza: document.getElementById('chartPizza').getContext('2d'),
+    ctxLinha: document.getElementById('chartLinha').getContext('2d')
 };
 
-/* TEMA */
-function alternarTema(){
-document.documentElement.classList.toggle("dark");
+const STATE = {
+    dados: [],
+    estatisticas: { Positivo: 0, Negativo: 0, Neutro: 0, Crise: 0 },
+    linksSociais: [],
+    chartPizza: null,
+    chartLinha: null
+};
+
+function alternarTema() { document.documentElement.classList.toggle("dark"); }
+
+function toggleEstado() { 
+    el.estadoBrasil.classList.toggle("hidden", el.tipoBusca.value !== "estado"); 
 }
 
-/* ESTADO */
-function toggleEstado(){
-estadoBrasil.classList.toggle("hidden",tipoBusca.value!=="estado");
+function classificar(texto) {
+    const t = texto.toLowerCase();
+    const crise = ["crime", "fraude", "corrupção", "escândalo", "prisão", "morte", "assassinato", "denúncia", "impeachment", "tragédia", "violência", "processo", "condenado"];
+    const negativo = ["erro", "falha", "queda", "prejuízo", "crise", "demissão", "reclamação", "acusação", "rombo", "instabilidade", "inflação", "desastre", "polêmica", "perda", "cancelamento"];
+    const positivo = ["sucesso", "vitória", "crescimento", "recorde", "lucro", "expansão", "aprovação", "inovação", "lançamento", "avanço", "melhora", "liderança", "valorização", "investimento", "parceria"];
+
+    for (let termo of crise) if (t.includes(termo)) return { cat: "Negativo", crise: true };
+    for (let termo of negativo) if (t.includes(termo)) return { cat: "Negativo", crise: false };
+    for (let termo of positivo) if (t.includes(termo)) return { cat: "Positivo", crise: false };
+    return { cat: "Neutro", crise: false };
 }
 
-/* CLASSIFICADOR EXPANDIDO */
-function classificar(texto){
+async function executarBusca() {
+    const nome = el.inputBusca.value.trim();
+    if (!nome) return alert("Digite um termo para busca.");
 
-const t=texto.toLowerCase();
+    let consulta = `"${nome}"`;
+    if (el.tipoBusca.value === "nacional") consulta += " Brasil";
+    if (el.tipoBusca.value === "estado") consulta += ` "${el.estadoBrasil.value}"`;
 
-const crise=[
-"crime","fraude","corrupç?o","escândalo","pris?o","morte",
-"assassinato","denúncia","impeachment","tragédia",
-"violência","processo","condenado"
-];
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(consulta)}&hl=pt-BR&ceid=BR:pt-419`;
+    const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
 
-const negativo=[
-"erro","falha","queda","prejuízo","crise",
-"demiss?o","reclamaç?o","acusaç?o","rombo",
-"instabilidade","inflaç?o","desastre",
-"polêmica","perda","cancelamento"
-];
+    el.loader.classList.remove("hidden");
+    el.feed.innerHTML = "";
 
-const positivo=[
-"sucesso","vitória","crescimento","recorde",
-"lucro","expans?o","aprovaç?o","inovaç?o",
-"lançamento","avanço","melhora",
-"liderança","valorizaç?o","investimento","parceria"
-];
+    try {
+        const resp = await fetch(proxy);
+        if (!resp.ok) throw new Error("Erro na rede");
+        const txt = await resp.text();
+        const xml = new DOMParser().parseFromString(txt, "text/xml");
+        const itens = Array.from(xml.querySelectorAll("item")).slice(0, 20);
 
-for(let termo of crise){
-if(t.includes(termo)) return {cat:"Negativo",crise:true};
-}
-for(let termo of negativo){
-if(t.includes(termo)) return {cat:"Negativo",crise:false};
-}
-for(let termo of positivo){
-if(t.includes(termo)) return {cat:"Positivo",crise:false};
-}
-return {cat:"Neutro",crise:false};
+        if(itens.length === 0) el.feed.innerHTML = "<p class='font-bold text-center'>Nenhum resultado encontrado.</p>";
+        
+        processarResultados(itens);
+        gerarLinksSociais(nome);
+    } catch (err) {
+        alert("Erro ao buscar notícias. Tente novamente mais tarde.");
+        console.error(err);
+    } finally {
+        el.loader.classList.add("hidden");
+    }
 }
 
-/* BUSCA */
-async function executarBusca(){
+function processarResultados(itens) {
+    STATE.dados = [];
+    STATE.estatisticas = { Positivo: 0, Negativo: 0, Neutro: 0, Crise: 0 };
+    el.feed.innerHTML = "";
 
-const nome=inputBusca.value.trim();
-if(!nome) return;
+    itens.forEach(item => {
+        const titulo = item.querySelector("title").textContent;
+        const link = item.querySelector("link").textContent;
+        const dataRaw = item.querySelector("pubDate").textContent;
+        const data = new Date(dataRaw).toLocaleDateString("pt-BR");
 
-let consulta=`"${nome}"`;
+        const analise = classificar(titulo);
+        STATE.estatisticas[analise.cat]++;
+        if (analise.crise) STATE.estatisticas.Crise++;
 
-if(tipoBusca.value==="nacional") consulta+=" Brasil";
-if(tipoBusca.value==="estado") consulta+=` "${estadoBrasil.value}"`;
+        STATE.dados.push({ titulo, link, data, analise });
 
-const url=`https://news.google.com/rss/search?q=${encodeURIComponent(consulta)}&hl=pt-BR&ceid=BR:pt-419`;
-const proxy=`https://corsproxy.io/?${encodeURIComponent(url)}`;
+        const div = document.createElement("div");
+        div.className = `bg-white dark:bg-gray-800 p-4 rounded-xl shadow mb-4 ${analise.crise ? 'status-crise' : ''}`;
+        div.innerHTML = `
+            <div class="text-xs font-bold mb-1 ${analise.cat === 'Positivo' ? 'text-green-500' : (analise.cat === 'Negativo' ? 'text-red-500' : 'text-gray-400')}">
+                ${analise.cat.toUpperCase()} ${analise.crise ? '- ALERTA' : ''} | ${data}
+            </div>
+            <a href="${link}" target="_blank" class="font-bold text-blue-600 dark:text-blue-400 hover:underline block leading-tight">
+                ${titulo}
+            </a>`;
+        el.feed.appendChild(div);
+    });
 
-loader.classList.remove("hidden");
-
-const resp=await fetch(proxy);
-const txt=await resp.text();
-const xml=new DOMParser().parseFromString(txt,"text/xml");
-
-const itens=Array.from(xml.querySelectorAll("item")).slice(0,20);
-
-processarResultados(itens);
-gerarLinksSociais(nome);
-
-loader.classList.add("hidden");
+    atualizarGraficos();
 }
 
-/* PROCESSAR */
-function processarResultados(itens){
+function gerarLinksSociais(nome) {
+    const e = encodeURIComponent(nome);
+    STATE.linksSociais = [
+        ["Facebook", `https://www.facebook.com/search/top?q=${e}`],
+        ["Instagram", `https://www.instagram.com/explore/tags/${nome.replace(/\s+/g, "")}/`],
+        ["X (Twitter)", `https://twitter.com/search?q=${e}`],
+        ["TikTok", `https://www.tiktok.com/search?q=${e}`],
+        ["YouTube", `https://www.youtube.com/results?search_query=${e}`],
+        ["LinkedIn", `https://www.linkedin.com/search/results/all/?keywords=${e}`]
+    ];
 
-STATE.dados=[];
-STATE.estatisticas={Positivo:0,Negativo:0,Neutro:0,Crise:0};
-
-feed.innerHTML="";
-
-itens.forEach(item=>{
-
-const titulo=item.querySelector("title").textContent;
-const link=item.querySelector("link").textContent;
-const data=new Date(item.querySelector("pubDate").textContent)
-.toLocaleDateString("pt-BR");
-
-const analise=classificar(titulo);
-
-STATE.estatisticas[analise.cat]++;
-if(analise.crise) STATE.estatisticas.Crise++;
-
-STATE.dados.push({titulo,link,data,analise});
-
-const div=document.createElement("div");
-div.className=`bg-white dark:bg-gray-800 p-4 rounded-xl shadow mb-4 ${analise.crise?'status-crise':''}`;
-
-div.innerHTML=`
-<div class="text-xs font-bold mb-1">
-${analise.cat} - ${data}
-</div>
-<a href="${link}" target="_blank"
-class="font-bold text-blue-500 hover:underline">
-${titulo}
-</a>`;
-
-feed.appendChild(div);
-});
-
-atualizarGraficos();
+    el.socialLinks.innerHTML = "";
+    STATE.linksSociais.forEach(r => {
+        const a = document.createElement("a");
+        a.href = r[1]; a.target = "_blank";
+        a.className = "bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg text-center text-sm font-bold transition";
+        a.innerText = r[0];
+        el.socialLinks.appendChild(a);
+    });
 }
 
-/* REDES SOCIAIS */
-function gerarLinksSociais(nome){
+function atualizarGraficos() {
+    el.numPos.innerText = STATE.estatisticas.Positivo;
+    el.numNeg.innerText = STATE.estatisticas.Negativo;
+    el.numNeu.innerText = STATE.estatisticas.Neutro;
+    el.numCri.innerText = STATE.estatisticas.Crise;
 
-const e=encodeURIComponent(nome);
+    if (STATE.chartPizza) STATE.chartPizza.destroy();
+    if (STATE.chartLinha) STATE.chartLinha.destroy();
 
-STATE.linksSociais=[
-["Facebook",`https://www.facebook.com/search/top?q=${e}`],
-["Instagram",`https://www.instagram.com/explore/tags/${nome.replace(/\s+/g,"")}/`],
-["X",`https://twitter.com/search?q=${e}`],
-["TikTok",`https://www.tiktok.com/search?q=${e}`],
-["YouTube",`https://www.youtube.com/results?search_query=${e}`],
-["LinkedIn",`https://www.linkedin.com/search/results/all/?keywords=${e}`]
-];
+    STATE.chartPizza = new Chart(el.ctxPizza, {
+        type: "doughnut",
+        data: {
+            labels: ["Positivo", "Negativo", "Neutro"],
+            datasets: [{
+                data: [STATE.estatisticas.Positivo, STATE.estatisticas.Negativo, STATE.estatisticas.Neutro],
+                backgroundColor: ["#10b981", "#ef4444", "#94a3b8"]
+            }]
+        },
+        options: { plugins: { title: { display: true, text: 'Sentimento das Notícias' } } }
+    });
 
-socialLinks.innerHTML="";
+    const datas = {};
+    STATE.dados.forEach(n => { datas[n.data] = (datas[n.data] || 0) + 1; });
 
-STATE.linksSociais.forEach(r=>{
-const a=document.createElement("a");
-a.href=r[1];
-a.target="_blank";
-a.className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl text-center font-bold";
-a.innerText=r[0];
-socialLinks.appendChild(a);
-});
+    STATE.chartLinha = new Chart(el.ctxLinha, {
+        type: "line",
+        data: {
+            labels: Object.keys(datas),
+            datasets: [{
+                label: "Volume de Notícias",
+                data: Object.values(datas),
+                borderColor: "#3b82f6",
+                tension: 0.3,
+                fill: true,
+                backgroundColor: 'rgba(59, 130, 246, 0.1)'
+            }]
+        }
+    });
 }
 
-/* GRÁFICOS */
-function atualizarGraficos(){
+function exportarPDF() {
+    if (!STATE.dados.length) return alert("Realize uma busca primeiro.");
 
-numPos.innerText=STATE.estatisticas.Positivo;
-numNeg.innerText=STATE.estatisticas.Negativo;
-numNeu.innerText=STATE.estatisticas.Neutro;
-numCri.innerText=STATE.estatisticas.Crise;
+    const doc = new jsPDF();
+    let y = 20;
 
-if(STATE.chartPizza) STATE.chartPizza.destroy();
-if(STATE.chartLinha) STATE.chartLinha.destroy();
+    doc.setFontSize(18);
+    doc.text("Relatório de Monitoramento - Monitor PA", 105, y, { align: "center" });
+    y += 15;
 
-STATE.chartPizza=new Chart(chartPizza,{
-type:"doughnut",
-data:{
-labels:["Positivo","Negativo","Neutro"],
-datasets:[{
-data:[
-STATE.estatisticas.Positivo,
-STATE.estatisticas.Negativo,
-STATE.estatisticas.Neutro
-],
-backgroundColor:["#10b981","#ef4444","#94a3b8"]
-}]
-}
-});
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${new Date().toLocaleString()}`, 20, y);
+    y += 10;
 
-const datas={};
-STATE.dados.forEach(n=>{
-datas[n.data]=(datas[n.data]||0)+1;
-});
+    doc.setFont("helvetica", "bold");
+    doc.text(`Resumo: Pos: ${STATE.estatisticas.Positivo} | Neg: ${STATE.estatisticas.Negativo} | Neutro: ${STATE.estatisticas.Neutro} | Crises: ${STATE.estatisticas.Crise}`, 20, y);
+    y += 15;
 
-STATE.chartLinha=new Chart(chartLinha,{
-type:"line",
-data:{
-labels:Object.keys(datas),
-datasets:[{
-label:"Notícias por Data",
-data:Object.values(datas),
-borderColor:"#3b82f6",
-fill:false
-}]
-}
-});
-}
+    STATE.dados.forEach((n, i) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${n.data} [${n.analise.cat}]`, 20, y);
+        y += 5;
+        doc.setFont("helvetica", "normal");
+        const titleLines = doc.splitTextToSize(n.titulo, 170);
+        doc.text(titleLines, 20, y);
+        y += (titleLines.length * 5) + 5;
+    });
 
-/* PDF A4 PROFISSIONAL */
-function exportarPDF(){
-
-if(!STATE.dados.length){
-alert("Nenhum relatório disponível.");
-return;
-}
-
-const doc=new jsPDF({
-orientation:"portrait",
-unit:"mm",
-format:"a4"
-});
-
-const pageWidth=210;
-const pageHeight=297;
-const margin=20;
-const maxWidth=pageWidth-(margin*2);
-
-let y=margin;
-
-doc.setFont("helvetica","bold");
-doc.setFontSize(16);
-doc.text("RELATORIO MONITOR PRO v9.0",pageWidth/2,y,{align:"center"});
-y+=10;
-
-doc.setFontSize(11);
-doc.setFont("helvetica","normal");
-doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`,margin,y);
-y+=10;
-
-doc.setFont("helvetica","bold");
-doc.text("Resumo:",margin,y);
-y+=7;
-
-doc.setFont("helvetica","normal");
-doc.text(`Positivo: ${STATE.estatisticas.Positivo}`,margin,y); y+=6;
-doc.text(`Negativo: ${STATE.estatisticas.Negativo}`,margin,y); y+=6;
-doc.text(`Neutro: ${STATE.estatisticas.Neutro}`,margin,y); y+=6;
-doc.text(`Incidentes: ${STATE.estatisticas.Crise}`,margin,y); y+=10;
-
-doc.setFont("helvetica","bold");
-doc.text("Redes Sociais:",margin,y);
-y+=8;
-
-doc.setFont("helvetica","normal");
-
-STATE.linksSociais.forEach(r=>{
-if(y>pageHeight-margin){doc.addPage(); y=margin;}
-const linhas=doc.splitTextToSize(`${r[0]}: ${r[1]}`,maxWidth);
-doc.text(linhas,margin,y);
-y+=(linhas.length*5)+4;
-});
-
-y+=5;
-
-doc.setFont("helvetica","bold");
-doc.text("Noticias:",margin,y);
-y+=8;
-
-doc.setFont("helvetica","normal");
-
-STATE.dados.forEach(n=>{
-if(y>pageHeight-margin){doc.addPage(); y=margin;}
-const bloco=`${n.data} - ${n.analise.cat}\n${n.titulo}\n${n.link}`;
-const linhas=doc.splitTextToSize(bloco,maxWidth);
-doc.text(linhas,margin,y);
-y+=(linhas.length*5)+6;
-});
-
-const total=doc.getNumberOfPages();
-
-for(let i=1;i<=total;i++){
-doc.setPage(i);
-doc.setFontSize(9);
-doc.text(`Pagina ${i} de ${total}`,pageWidth/2,pageHeight-10,{align:"center"});
-}
-
-doc.save("relatorio-monitor-pro-v9-A4.pdf");
+    doc.save(`monitor-pa-${Date.now()}.pdf`);
 }
 </script>
 
